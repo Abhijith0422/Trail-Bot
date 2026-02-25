@@ -1,10 +1,12 @@
 name: trail_ai
-description: "A new Flutter package project."
-version: 0.0.1
-homepage:
+description: Clear explanation of what your package does.
+version: 1.0.0
+homepage: https://github.com/Abhijith0422/Trail-Bot
+repository: https://github.com/Abhijith0422/Trail-Bot
+issue_tracker: https://github.com/Abhijith0422/Trail-Bot/issues
 
 environment:
-  sdk: ^3.10.4
+  sdk: ">=3.0.0 <4.0.0"
   flutter: ">=1.17.0"
 
 dependencies:
