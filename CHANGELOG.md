@@ -1,3 +1,6 @@
+## 1.0.1
+*Updated description in pubspec.yaml
+
 ## 1.0.0
 
 * Initial stable release with full null safety support

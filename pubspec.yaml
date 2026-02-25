@@ -1,6 +1,6 @@
 name: trail_ai
 description: A Flutter package for building AI-powered applications with support for both online (Google Gemini) and offline (Gemma) language models. Features connectivity-aware model switching, streaming responses, and automatic offline model management.
-version: 1.0.0
+version: 1.0.1
 homepage: https://github.com/Abhijith0422/Trail-Bot
 repository: https://github.com/Abhijith0422/Trail-Bot
 issue_tracker: https://github.com/Abhijith0422/Trail-Bot/issues
