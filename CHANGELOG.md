@@ -1,3 +1,12 @@
+## 2.0.1
+* Added pluggable online and offline engine support through `onlineEngineBuilder` and `offlineEngineBuilder`
+* Added developer-controlled agent profiles with `TrailAiAgentDefinition` and `activeAgentId`
+* Added generic online configuration fields while keeping Gemini compatibility for existing apps
+* Updated README and package description for pub.dev publishing
+* Fixed publish validation issues reported by `flutter pub publish --dry-run`
+
+
+
 ## 1.0.1
 *Updated description in pubspec.yaml
 

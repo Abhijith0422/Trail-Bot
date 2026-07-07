@@ -2,9 +2,9 @@
 
 `trail_ai` is a reusable Flutter package that gives you one agent API for:
 
-- Online chat with Gemini
-- Offline chat with a local model via `flutter_gemma`
-- Auto online/offline switching from network connectivity
+- Online chat through a pluggable provider interface, with Gemini as the default
+- Offline chat through a pluggable local-model interface, with `flutter_gemma` as the default
+- Developer-controlled agent profiles with automatic online/offline switching from network connectivity
 - Optional fallback to offline when online fails
 - Streaming and non-streaming responses
 
@@ -56,11 +56,59 @@ await agent.dispose();
 
 ## API overview
 
-- `TrailAiConfig`: setup key, model names/urls, default behavior context
-- `TrailAiAgent.initialize()`: starts Gemini, connectivity listener, optional offline preload
+- `TrailAiConfig`: setup key, model names/urls, default behavior context, and provider builders
+- `TrailAiAgentDefinition`: define named developer-selected agents with their own models, prompts, and execution mode
+- `TrailAiAgent.initialize()`: starts the active online provider, connectivity listener, and optional offline preload
 - `TrailAiAgent.ask()` / `askStream()`: send questions with optional per-call context override
 - `onlineStatusStream`: emits online/offline state changes
 - `downloadProgressStream`: emits local model download state/progress
+
+## Provider switching
+
+The package is built so the developer can swap the online or offline engine without changing the app UI.
+
+By default, the online engine uses Gemini and the offline engine uses `flutter_gemma`. If you want another online provider such as GPT, pass a custom `onlineEngineBuilder`. If you want another offline runtime, pass a custom `offlineEngineBuilder`.
+
+When you use a custom online provider, `onlineApiKey` and `onlineModel` are the generic fields to set. The old `geminiApiKey` and `geminiModel` names still work for backwards compatibility.
+
+## Developer-controlled agents
+
+The package does not expose any agent picker to the app user.
+
+Instead, the developer can register one or more named agents in code and choose the active one before or after initialization:
+
+```dart
+final agent = TrailAiAgent(
+	config: TrailAiConfig(
+		onlineApiKey: 'YOUR_API_KEY',
+		onlineModel: 'gpt-4o-mini',
+		agents: const [
+			TrailAiAgentDefinition(
+				id: 'travel-online',
+				label: 'Travel Assistant Online',
+				onlineModel: 'gpt-4o-mini',
+				agentContext: 'You are a concise travel assistant.',
+				executionMode: TrailAiExecutionMode.onlineOnly,
+			),
+			TrailAiAgentDefinition(
+				id: 'travel-offline',
+				label: 'Travel Assistant Offline',
+				offlineModelUrl: 'https://example.com/my-offline-model.task',
+				executionMode: TrailAiExecutionMode.offlineOnly,
+			),
+		],
+		activeAgentId: 'travel-online',
+	),
+);
+
+await agent.initialize();
+```
+
+You can switch agents from developer code only:
+
+```dart
+await agent.setActiveAgent('travel-offline');
+```
 
 ## Behavior context
 
