@@ -1,4 +1,4 @@
-## 2.0.1
+## 2.0.0
 * Added pluggable online and offline engine support through `onlineEngineBuilder` and `offlineEngineBuilder`
 * Added developer-controlled agent profiles with `TrailAiAgentDefinition` and `activeAgentId`
 * Added generic online configuration fields while keeping Gemini compatibility for existing apps
