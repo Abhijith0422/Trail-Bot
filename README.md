@@ -1,21 +1,61 @@
 # trail_ai
 
-`trail_ai` is a reusable Flutter package that gives you one agent API for:
+`trail_ai` is a reusable Flutter package for building AI chat experiences that work with both cloud and on-device models through one agent API.
 
-- Online chat through a pluggable provider interface, with Gemini as the default
-- Offline chat through a pluggable local-model interface, with `flutter_gemma` as the default
-- Developer-controlled agent profiles with automatic online/offline switching from network connectivity
-- Optional fallback to offline when online fails
+Out of the box, it ships with:
+
+- A default online engine powered by Google Gemini
+- A default offline engine powered by `flutter_gemma`
+
+It also supports any online or offline model provider you want to use, as long as you plug it in through the package engine interfaces:
+
+- `TrailAiOnlineEngine` for cloud or API-based models
+- `TrailAiOfflineEngine` for local or on-device models
+
+That means you can keep the same app-side API while swapping in:
+
+- Online models like Gemini, OpenAI-compatible endpoints, Claude, Groq, or your own backend
+- Offline models exposed through your preferred local runtime
+
+## Features
+
+- One agent API for both online and offline chat
+- Pluggable online and offline model engines
+- Default Gemini online support
+- Default `flutter_gemma` offline support
+- Developer-defined agent profiles with per-agent model settings
+- Connectivity-aware online/offline switching
+- Optional fallback to offline when online requests fail
 - Streaming and non-streaming responses
+- Offline model download progress reporting
 
-## Quick start
+## What "any model" means
 
-Add dependency:
+`trail_ai` is not limited to Gemini and Gemma.
+
+If you want to use a different provider:
+
+- For online models, pass `onlineEngineBuilder`
+- For offline models, pass `offlineEngineBuilder`
+
+The package handles agent orchestration, execution mode, prompt/context composition, connectivity awareness, and response streaming. Your custom engine only needs to implement how a specific model is initialized and how it returns streamed text.
+
+## Installation
+
+Add the package to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-	trail_ai:
+  trail_ai:
 ```
+
+Then run:
+
+```bash
+flutter pub get
+```
+
+## Quick Start
 
 Create and initialize an agent:
 
@@ -23,10 +63,10 @@ Create and initialize an agent:
 import 'package:trail_ai/trail_ai.dart';
 
 final agent = TrailAiAgent(
-	config: const TrailAiConfig(
-		geminiApiKey: 'YOUR_GEMINI_API_KEY',
-		agentContext: 'You are a concise travel assistant.',
-	),
+  config: const TrailAiConfig(
+    geminiApiKey: 'YOUR_GEMINI_API_KEY',
+    agentContext: 'You are a concise travel assistant.',
+  ),
 );
 
 await agent.initialize();
@@ -44,7 +84,7 @@ Ask with streaming chunks:
 
 ```dart
 await for (final chunk in agent.askStream('Best places to visit in Udaipur?')) {
-	print(chunk.text);
+  print(chunk.text);
 }
 ```
 
@@ -54,51 +94,120 @@ Dispose when done:
 await agent.dispose();
 ```
 
-## API overview
+## Default Behavior
 
-- `TrailAiConfig`: setup key, model names/urls, default behavior context, and provider builders
-- `TrailAiAgentDefinition`: define named developer-selected agents with their own models, prompts, and execution mode
-- `TrailAiAgent.initialize()`: starts the active online provider, connectivity listener, and optional offline preload
-- `TrailAiAgent.ask()` / `askStream()`: send questions with optional per-call context override
-- `onlineStatusStream`: emits online/offline state changes
-- `downloadProgressStream`: emits local model download state/progress
+Without custom builders:
 
-## Provider switching
+- Online requests use the built-in Gemini engine
+- Offline requests use the built-in `flutter_gemma` engine
+- `initialize()` can preload the offline model
+- In `auto` mode, the package prefers online when connectivity is available
+- If online fails and fallback is enabled, it can switch to offline automatically
 
-The package is built so the developer can swap the online or offline engine without changing the app UI.
+## Use Any Online Model
 
-By default, the online engine uses Gemini and the offline engine uses `flutter_gemma`. If you want another online provider such as GPT, pass a custom `onlineEngineBuilder`. If you want another offline runtime, pass a custom `offlineEngineBuilder`.
+To use a provider other than Gemini, implement `TrailAiOnlineEngine` and pass `onlineEngineBuilder`.
 
-When you use a custom online provider, `onlineApiKey` and `onlineModel` are the generic fields to set. The old `geminiApiKey` and `geminiModel` names still work for backwards compatibility.
+```dart
+class MyOnlineEngine implements TrailAiOnlineEngine {
+  @override
+  Future<void> initialize({
+    required TrailAiConfig config,
+    required TrailAiAgentDefinition agent,
+  }) async {
+    // Initialize your provider here.
+  }
 
-## Developer-controlled agents
+  @override
+  Stream<TrailAiResponseChunk> askStream(String prompt) async* {
+    // Stream tokens or chunks from your online model here.
+    yield const TrailAiResponseChunk(
+      text: 'Hello from a custom online model.',
+      source: TrailAiSource.online,
+    );
+  }
 
-The package does not expose any agent picker to the app user.
+  @override
+  Future<void> dispose() async {}
+}
+
+final agent = TrailAiAgent(
+  config: TrailAiConfig(
+    onlineApiKey: 'YOUR_API_KEY',
+    onlineModel: 'your-online-model',
+    onlineEngineBuilder: (config, agent) => MyOnlineEngine(),
+  ),
+);
+```
+
+You can use `onlineApiKey` and `onlineModel` as generic config fields for your custom provider. The older `geminiApiKey` and `geminiModel` fields still work for backwards compatibility with the default Gemini engine.
+
+## Use Any Offline Model
+
+To use a different local runtime or model format, implement `TrailAiOfflineEngine` and pass `offlineEngineBuilder`.
+
+```dart
+class MyOfflineEngine implements TrailAiOfflineEngine {
+  @override
+  Future<void> initialize({
+    required TrailAiConfig config,
+    required TrailAiAgentDefinition agent,
+    void Function(double progress, String status)? onProgress,
+  }) async {
+    onProgress?.call(0.3, 'Preparing custom offline model...');
+    onProgress?.call(1.0, 'Offline model ready');
+  }
+
+  @override
+  Stream<TrailAiResponseChunk> askStream(String prompt) async* {
+    yield const TrailAiResponseChunk(
+      text: 'Hello from a custom offline model.',
+      source: TrailAiSource.offline,
+    );
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final agent = TrailAiAgent(
+  config: TrailAiConfig(
+    offlineModelUrl: 'https://example.com/model.task',
+    offlineEngineBuilder: (config, agent) => MyOfflineEngine(),
+  ),
+);
+```
+
+This lets you connect `trail_ai` to whatever offline stack your app needs, while keeping the same `ask()` and `askStream()` API.
+
+## Developer-Controlled Agents
+
+The package does not expose any agent picker UI to the app user.
 
 Instead, the developer can register one or more named agents in code and choose the active one before or after initialization:
 
 ```dart
 final agent = TrailAiAgent(
-	config: TrailAiConfig(
-		onlineApiKey: 'YOUR_API_KEY',
-		onlineModel: 'gpt-4o-mini',
-		agents: const [
-			TrailAiAgentDefinition(
-				id: 'travel-online',
-				label: 'Travel Assistant Online',
-				onlineModel: 'gpt-4o-mini',
-				agentContext: 'You are a concise travel assistant.',
-				executionMode: TrailAiExecutionMode.onlineOnly,
-			),
-			TrailAiAgentDefinition(
-				id: 'travel-offline',
-				label: 'Travel Assistant Offline',
-				offlineModelUrl: 'https://example.com/my-offline-model.task',
-				executionMode: TrailAiExecutionMode.offlineOnly,
-			),
-		],
-		activeAgentId: 'travel-online',
-	),
+  config: TrailAiConfig(
+    onlineApiKey: 'YOUR_API_KEY',
+    onlineModel: 'gpt-4o-mini',
+    agents: const [
+      TrailAiAgentDefinition(
+        id: 'travel-online',
+        label: 'Travel Assistant Online',
+        onlineModel: 'gpt-4o-mini',
+        agentContext: 'You are a concise travel assistant.',
+        executionMode: TrailAiExecutionMode.onlineOnly,
+      ),
+      TrailAiAgentDefinition(
+        id: 'travel-offline',
+        label: 'Travel Assistant Offline',
+        offlineModelUrl: 'https://example.com/my-offline-model.task',
+        executionMode: TrailAiExecutionMode.offlineOnly,
+      ),
+    ],
+    activeAgentId: 'travel-online',
+  ),
 );
 
 await agent.initialize();
@@ -110,16 +219,41 @@ You can switch agents from developer code only:
 await agent.setActiveAgent('travel-offline');
 ```
 
-## Behavior context
+## Execution Modes
+
+Each agent can define how it should run:
+
+- `TrailAiExecutionMode.auto`: use online when connected, otherwise offline
+- `TrailAiExecutionMode.onlineOnly`: always use the online engine
+- `TrailAiExecutionMode.offlineOnly`: always use the offline engine
+
+## Behavior Context
 
 You can provide context in two ways:
 
-- Global context in `TrailAiConfig.agentContext`
-- Request-level context in `ask(..., context: '...')`
+- Global context with `TrailAiConfig.agentContext`
+- Per-request context with `ask(..., context: '...')`
 
-Request-level context overrides global context for that question.
+Per-request context overrides the agent's default context for that call.
+
+## API Overview
+
+- `TrailAiConfig`: global package configuration
+- `TrailAiAgentDefinition`: per-agent model and behavior settings
+- `TrailAiAgent.initialize()`: starts the active engine setup and connectivity tracking
+- `TrailAiAgent.ask()`: returns a full response
+- `TrailAiAgent.askStream()`: streams response chunks
+- `TrailAiAgent.setActiveAgent()`: switches the active developer-defined agent
+- `onlineStatusStream`: emits online/offline status changes
+- `downloadProgressStream`: emits offline model download state and progress
 
 ## Notes
 
-- Offline responses require the local model to be downloaded and ready.
-- If online fails and `fallbackToOfflineOnOnlineFailure` is `true`, the agent tries local model automatically.
+- The default online engine requires a Gemini-compatible setup through `geminiApiKey` or `onlineApiKey`
+- The default offline engine uses `flutter_gemma` and downloads the configured model from `offlineModelUrl`
+- Custom engines are the path for supporting other online or offline model providers
+- Offline responses require the local model to be ready before use
+
+## Example
+
+See the sample app in [example/lib/main.dart](/C:/Users/abhij/Desktop/Trail%20Bot/example/lib/main.dart) for a simple chat UI using `TrailAiAgent`.
